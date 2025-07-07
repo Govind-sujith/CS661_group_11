@@ -1,7 +1,8 @@
 # CS661_group_11
 THIS IS THE OFFICIAL REPOSITORY FOR CS661 GROUP PROJECT 
 =======
-PS: add a folder with ml_models in backend directory and keep it empty as of now
+PS: add a folder with name "ml_models" in backend directory and keep it empty as of now
+
 CURRENT STATUS UPDATE FROM BACKEND TEAM:
 
 ## 🚀 Backend Setup (For Local Development)
