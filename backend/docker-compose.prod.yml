@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # The Database Service (same as before)
+  db:
+    image: postgres:13
+    container_name: postgres_wildfire_prod
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=wildfiredb
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    networks:
+      - wildfire-net
+
+  # The FastAPI App Service (the brains of the operation)
+  app:
+    build: . # Build the image from the Dockerfile in the current directory
+    container_name: fastapi_wildfire_prod
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 # Run the production server
+    depends_on:
+      - db # Wait for the database to start
+    networks:
+      - wildfire-net
+    restart: always
+    volumes: 
+      - ./data:/app/data # Links the VPS ./data folder to the container's /app/data folder
+
+  # The Cloudflare Tunnel Service (our secure connection to the internet)
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflare_tunnel_wildfire
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TOKEN}
+    depends_on:
+      - app # Wait for our app to be running
+    networks:
+      - wildfire-net
+    restart: always
+
+volumes:
+  postgres_prod_data:
+
+# Define our private network so services can talk to each other securely
+networks:
+  wildfire-net:

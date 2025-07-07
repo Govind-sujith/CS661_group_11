@@ -1,0 +1,27 @@
+# 🌐 Environment variables
+.env
+
+# 🐍 Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 🧪 Virtual environments
+venv/
+*venv/
+.venv/
+*.env/
+ENV/
+env/
+
+# 🪟 Windows metadata
+*.db
+*:Zone.Identifier
+
+# 📦 IDE folders
+.vscode/
+.idea/
+
+# 📊 Ignore large CSV or data files
+/backend/data/
