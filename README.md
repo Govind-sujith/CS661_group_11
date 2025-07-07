@@ -37,7 +37,7 @@ This project uses Docker to create a consistent development environment. You do 
     ```
     The first time you run this, it will take a few minutes to download and build everything. Subsequent runs will be much faster.
 
-    The API will be available at `http://localhost:8000`. You can see the interactive documentation at `http://localhost:8000/docs`.
+    The API will be available at `http://localhost:8000`. You can see the interactive documentation at `http://localhost:8000/docs`.Also take a look at http://localhost:8000/redoc
 
 4.  **Load the Database (First-time setup only):**
     While the command above is running, open a **new, separate terminal window(if using vscode there is split terminal option check it)**. Navigate to the same project folder (`cd CS661_group_11/backend`). Run this command:
@@ -45,4 +45,4 @@ This project uses Docker to create a consistent development environment. You do 
     docker-compose exec app python load_data.py
     ```
     This will load the all fire records from master_csv into the database. It will take a few minutes. Once it's done, your local backend is fully set up and ready to be used by the frontend.
->>>>>>> master
+
