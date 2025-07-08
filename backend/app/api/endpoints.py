@@ -12,6 +12,7 @@ import pandas as pd
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy import func, Integer, desc, asc
+from datetime import datetime, timedelta
 
 
 router = APIRouter()
@@ -241,3 +242,43 @@ def get_aggregate_data(
     ).limit(20).all()
 
     return [{"group": str(row.group), "count": row.count} for row in query if row.group]
+
+@router.get("/fires/active", response_model=List[schemas.FirePoint])
+def get_active_fires_on_day(
+    year: int,
+    day: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Returns fires that were active on a specific day of a given year.
+    """
+    try:
+        active_date = datetime(year, 1, 1) + timedelta(days=day - 1)
+    except:
+        raise HTTPException(status_code=400, detail="Invalid day or year")
+
+    from sqlalchemy import cast, DateTime
+
+    query = db.query(db_models.Wildfire).filter(
+        db_models.Wildfire.DISCOVERY_DATETIME.isnot(None),
+        db_models.Wildfire.CONT_DATETIME.isnot(None),
+        cast(db_models.Wildfire.DISCOVERY_DATETIME, DateTime) <= active_date,
+        cast(db_models.Wildfire.CONT_DATETIME, DateTime) >= active_date
+    )
+
+
+    fires = query.limit(5000).all()
+
+    return [
+        schemas.FirePoint(
+            fod_id=fire.FOD_ID,
+            lat=fire.LATITUDE,
+            lon=fire.LONGITUDE,
+            cause=fire.STAT_CAUSE_DESCR,
+            agency=fire.NWCG_REPORTING_AGENCY,
+            fire_size=fire.FIRE_SIZE,
+            fire_year=fire.FIRE_YEAR,
+            state=fire.STATE
+        )
+        for fire in fires if fire.LATITUDE is not None and fire.LONGITUDE is not None
+    ]
