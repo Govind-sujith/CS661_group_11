@@ -17,6 +17,8 @@
 
 /* chart */
 @import './components/chart/styles.css';
+/* map */
+@import 'maplibre-gl/dist/maplibre-gl.css';
 
 /** **************************************
 * Baseline

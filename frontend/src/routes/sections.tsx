@@ -12,6 +12,7 @@ import { DashboardLayout } from 'src/layouts/dashboard';
 // ----------------------------------------------------------------------
 
 export const DashboardPage = lazy(() => import('src/pages/dashboard'));
+export const WildfireMapPage = lazy(() => import('src/pages/wildfire-map'));
 export const Page404 = lazy(() => import('src/pages/page-not-found'));
 
 const renderFallback = () => (
@@ -43,7 +44,10 @@ export const routesSection: RouteObject[] = [
         </Suspense>
       </DashboardLayout>
     ),
-    children: [{ index: true, element: <DashboardPage /> }],
+    children: [
+      { index: true, element: <DashboardPage /> },
+      { path: 'wildfire', element: <WildfireMapPage /> },
+    ],
   },
   {
     path: '404',
