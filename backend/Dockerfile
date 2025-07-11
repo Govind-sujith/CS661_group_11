@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY ./app /app/app
 COPY ./ml_models /app/ml_models
 # The line that copied ./data was here. We removed it.
-COPY ./load_data.py /app/load_data.py
+
 
 # Command to run the app
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
