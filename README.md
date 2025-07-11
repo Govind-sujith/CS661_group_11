@@ -21,10 +21,10 @@ This project uses Docker to create a consistent development environment. You do 
 
 2.  **Navigate to the Backend Directory:**
     All Docker commands must be run from the `backend` folder.
-    from https://drive.google.com/file/d/146QW_T_oNxWIa1yP6tC-iRnNzqXUgcmc/view?usp=sharing downlaod and place it in backend folder
+    from https://drive.google.com/file/d/146QW_T_oNxWIa1yP6tC-iRnNzqXUgcmc/view?usp=sharing downlaod and place it in project folder not in backend folder
     ```bash
     cd backend
-    docker-compose down
+    docker-compose down --volumes --remove-orphans
     ```
 
 3.  **Build and Run the Services:**
@@ -39,7 +39,7 @@ This project uses Docker to create a consistent development environment. You do 
 4.  **Load the Database (First-time setup only):**
     While the command above is running, open a **new, separate terminal window(if using vscode there is split terminal option check it)**. Navigate to the same project folder (`cd CS661_group_11/backend`). Run this command:
     ```bash
-    docker-compose exec app python /project_root/create_and_load_final.py
+    docker-compose exec app python run_data.py
     ```
 5.  **frontend_pk**
     ```bash
