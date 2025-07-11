@@ -1,32 +1,25 @@
-# docker-compose.yml for local development
+# backend/docker-compose.yml (The Definitive, Final Version)
 services:
   db:
     image: postgres:13
     container_name: postgres_wildfire
-    environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=wildfiredb
-    ports: # This exposes the port so you can connect from your PC
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - wildfire-net
+    environment: ["POSTGRES_USER=user", "POSTGRES_PASSWORD=password", "POSTGRES_DB=wildfiredb"]
+    ports: ["5432:5432"]
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    networks: ["wildfire-net"]
 
   app:
-    build: . # This tells it to use the Dockerfile in the current folder
+    build: .
     container_name: fastapi_wildfire
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports: ["8000:8000"]
     volumes:
-      - ./app:/app/app # This links your code so changes are instant
-      - ./data:/app/data
-    ports:
-      - "8000:8000"
-    depends_on: # This waits for the database to start first
-      - db
-    networks:
-      - wildfire-net
+      # This links your local ./app folder for instant API code changes (hot-reloading).
+      - .:/app
+      # This links the entire parent folder, giving the container access to the SQLite file and the loading script.
+      - ../:/project_root
+    depends_on: ["db"]
+    networks: ["wildfire-net"]
 
 volumes:
   postgres_data:
