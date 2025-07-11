@@ -43,6 +43,9 @@ This project uses Docker to create a consistent development environment. You do 
     ```
 5.  **frontend_pk**
     ```bash
+    cd frontend_pk
+    ```  
+    ```bash
     npm install
     ```
     ```bash
