@@ -27,4 +27,4 @@ app.include_router(endpoints.router, prefix="/api/v1")
 
 @app.get("/", tags=["Root"])
 def read_root():
-    return {"message": "Welcome to the Wildfire Analytics API!"}
+    return {"message": "Welcome to the Wildfire Analytics upgraded API!"}

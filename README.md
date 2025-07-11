@@ -2,9 +2,7 @@
 THIS IS THE OFFICIAL REPOSITORY FOR CS661 GROUP PROJECT 
 =======
 
-CURRENT STATUS UPDATE FROM BACKEND TEAM:
-
-## 🚀 Backend Setup (For Local Development)
+## Backend and frontend_pk Setup (For Local Development)
 
 This project uses Docker to create a consistent development environment. You do not need to install Python or PostgreSQL on your machine, only Docker Desktop.
 
@@ -13,7 +11,6 @@ This project uses Docker to create a consistent development environment. You do 
 *   **Git:** To clone the project.
 *   **Docker Desktop:** The only software you need to install. Make sure it is running before you start.
 
-
 ### Instructions
 
 1.  **Clone the Repository:**
@@ -21,13 +18,13 @@ This project uses Docker to create a consistent development environment. You do 
     git clone https://github.com/Govind-sujith/CS661_group_11.git
     cd CS661_group_11
     ```
-    downlaod csv file from link https://drive.google.com/file/d/1f9hbHhOJvZLRhwzoC4rFdFUXYRWBE54W/view?usp=sharing
-    place it in CS661_group_11/backend/data
 
 2.  **Navigate to the Backend Directory:**
     All Docker commands must be run from the `backend` folder.
+    from https://drive.google.com/file/d/146QW_T_oNxWIa1yP6tC-iRnNzqXUgcmc/view?usp=sharing downlaod and place it in backend folder
     ```bash
     cd backend
+    docker-compose down
     ```
 
 3.  **Build and Run the Services:**
@@ -42,7 +39,16 @@ This project uses Docker to create a consistent development environment. You do 
 4.  **Load the Database (First-time setup only):**
     While the command above is running, open a **new, separate terminal window(if using vscode there is split terminal option check it)**. Navigate to the same project folder (`cd CS661_group_11/backend`). Run this command:
     ```bash
-    docker-compose exec app python load_data.py
+    docker-compose exec app python /project_root/create_and_load_final.py
     ```
-    This will load the all fire records from master_csv into the database. It will take a few minutes. Once it's done, your local backend is fully set up and ready to be used by the frontend.
->>>>>>> master
+5.  **frontend_pk**
+    ```bash
+    npm install
+    ```
+    ```bash
+    npm start
+    ```       
+## 📄 Project Report
+
+Read the full report [here](report_pk.md).
+

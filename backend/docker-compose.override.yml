@@ -1,0 +1,5 @@
+# backend/docker-compose.override.yml
+services:
+  app:
+    volumes:
+      - ../:/project_root # Grants access to the parent directory
