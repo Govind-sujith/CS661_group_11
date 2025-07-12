@@ -1,3 +1,4 @@
 DATA RESOURCE LINKs FOR THE PROJECT:
 main_resource:https://www.kaggle.com/datasets/rtatman/188-million-us-wildfires
 processed_csv:https://drive.google.com/file/d/1CjcjeUB0Q_zjTyUrLF4ay8b_wCLJThT1/view?usp=sharing
+data set for ml : https://drive.google.com/file/d/1nmku0c9-Y_hRragka0yU9yZo0yLy4MfY/view?usp=sharing
