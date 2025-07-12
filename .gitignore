@@ -26,3 +26,4 @@ env/
 # 📊 Ignore large CSV or data files
 /backend/data/
 /backend/FPA_FOD_20170508.sqlite
+FPA_FOD_20170508.sqlite
