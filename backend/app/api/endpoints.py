@@ -565,4 +565,4 @@ def get_fires_by_year(
         )
         for f in fires_db if f.LATITUDE is not None and f.LONGITUDE is not None
     ]
-
+    return fires_response

@@ -12,7 +12,9 @@ import {
   Box,
   CircularProgress,
   TextField,
-  Divider
+  Divider,
+  ToggleButton,
+  ToggleButtonGroup
 } from '@mui/material';
 
 function FilterPanel() {
@@ -20,6 +22,14 @@ function FilterPanel() {
 
   const [states, setStates] = useState([]);
   const [causes, setCauses] = useState([]);
+  const [years] = useState(() => {
+    // Generate years from 1992 to 2015
+    const yearRange = [];
+    for (let year = 2015; year >= 1992; year--) {
+      yearRange.push(year);
+    }
+    return ['All', ...yearRange];
+  });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -53,6 +63,17 @@ function FilterPanel() {
     });
   };
 
+  const handleQueryTypeChange = (event, newQueryType) => {
+    if (newQueryType !== null) {
+      setFilters({
+        ...filters,
+        queryType: newQueryType,
+        // Clear the opposite filter when switching
+        ...(newQueryType === 'year' ? { startDate: '', endDate: '' } : { year: 'All' })
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <Paper elevation={3} style={{ padding: '1.5rem', borderRadius: '8px', textAlign: 'center' }}>
@@ -67,45 +88,90 @@ function FilterPanel() {
       <Typography variant="h6" gutterBottom>Filters</Typography>
       <Box className="space-y-6 mt-4">
 
-        {/* Date Range Filter */}
+        {/* Query Type Toggle */}
         <Box>
           <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>
-            Date Range
+            Query Type
           </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              name="startDate"
-              label="Start Date"
-              type="date"
-              value={filters.startDate || ''}
-              onChange={handleDateChange}
-              InputLabelProps={{
-                shrink: true,
-              }}
-              inputProps={{
-                max: '2015-12-31'
-              }}
-              fullWidth
-              size="small"
-            />
-            <TextField
-              name="endDate"
-              label="End Date"
-              type="date"
-              value={filters.endDate || ''}
-              onChange={handleDateChange}
-              InputLabelProps={{
-                shrink: true,
-              }}
-              inputProps={{
-                min: filters.startDate || '1992-01-01',
-                max: '2015-12-31'
-              }}
-              fullWidth
-              size="small"
-            />
-          </Box>
+          <ToggleButtonGroup
+            value={filters.queryType || 'year'}
+            exclusive
+            onChange={handleQueryTypeChange}
+            aria-label="query type"
+            fullWidth
+            size="small"
+          >
+            <ToggleButton value="year" aria-label="year query">
+              Year
+            </ToggleButton>
+            <ToggleButton value="dateRange" aria-label="date range query">
+              Date Range
+            </ToggleButton>
+          </ToggleButtonGroup>
         </Box>
+
+        <Divider />
+
+        {/* Conditional Rendering based on Query Type */}
+        {filters.queryType === 'dateRange' || (!filters.queryType && filters.startDate) ? (
+          // Date Range Filter
+          <Box>
+            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>
+              Date Range
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <TextField
+                name="startDate"
+                label="Start Date"
+                type="date"
+                value={filters.startDate || ''}
+                onChange={handleDateChange}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+                inputProps={{
+                  max: '2015-12-31'
+                }}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                name="endDate"
+                label="End Date"
+                type="date"
+                value={filters.endDate || ''}
+                onChange={handleDateChange}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+                inputProps={{
+                  min: filters.startDate || '1992-01-01',
+                  max: '2015-12-31'
+                }}
+                fullWidth
+                size="small"
+              />
+            </Box>
+          </Box>
+        ) : (
+          // Year Filter
+          <FormControl fullWidth>
+            <InputLabel id="year-select-label">Year</InputLabel>
+            <Select
+              labelId="year-select-label"
+              name="year"
+              value={filters.year || 'All'}
+              label="Year"
+              onChange={handleChange}
+            >
+              {years.map(y => (
+                <MenuItem key={y} value={y}>
+                  {y}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
 
         <Divider />
 
@@ -115,7 +181,7 @@ function FilterPanel() {
           <Select
             labelId="state-select-label"
             name="state"
-            value={filters.state}
+            value={filters.state || 'All'}
             label="State"
             onChange={handleChange}
           >

@@ -213,35 +213,41 @@ function NationalOverview() {
       .then(shapes => setCountyShapes(shapes));
   }, []);
 
-  // Helper function to build API filters
+  
+
+
   const buildApiFilters = useCallback(() => {
-    const apiFilters = {};
+      const apiFilters = {};
 
-    // Handle year filter
-    if (filters.year && filters.year !== 'All') {
-      apiFilters.year = filters.year;
-    }
+      // Handle query type toggle
+      if (filters.queryType === 'year' || (!filters.queryType && filters.year)) {
+        // Year-based query
+        if (filters.year && filters.year !== 'All') {
+          apiFilters.year = filters.year;
+        }
+      } else if (filters.queryType === 'dateRange' || (!filters.queryType && filters.startDate)) {
+        // Date range-based query
+        if (filters.startDate) {
+          apiFilters.start_date = filters.startDate;
+        }
+        if (filters.endDate) {
+          apiFilters.end_date = filters.endDate;
+        }
+      }
 
-    // Handle date range filters
-    if (filters.startDate) {
-      apiFilters.start_date = filters.startDate;
-    }
-    if (filters.endDate) {
-      apiFilters.end_date = filters.endDate;
-    }
+      // Handle state filter (applies to both query types)
+      if (filters.state && filters.state !== 'All') {
+        apiFilters.state = filters.state;
+      }
 
-    // Handle state filter
-    if (filters.state && filters.state !== 'All') {
-      apiFilters.state = filters.state;
-    }
+      // Handle cause filter (applies to both query types)
+      if (filters.cause && filters.cause !== 'All') {
+        apiFilters.cause = filters.cause;
+      }
 
-    // Handle cause filter
-    if (filters.cause && filters.cause !== 'All') {
-      apiFilters.cause = filters.cause;
-    }
+      return apiFilters;
+    }, [filters]);
 
-    return apiFilters;
-  }, [filters]);
 
   // Points data fetching
   useEffect(() => {
