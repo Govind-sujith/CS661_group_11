@@ -26,24 +26,21 @@ STATE_TO_FIPS = {
 }
 
 # --- Helper function for robust date range filtering ---
-def apply_date_range_filter(query, start_date: Optional[date], end_date: Optional[date]):
-    """
-    Applies a more intuitive date range filter. A fire is included if its
-    lifespan (discovery to containment) overlaps with the selected date range.
-    This is more accurate than just filtering by discovery date.
-    """
-    if start_date:
-        # The fire must have ended on or after the start date.
-        # If the containment date is null, we assume it's still active.
+def apply_date_range_filter(query, start_date, end_date):
+    """Apply date range filter to the query"""
+    if start_date and end_date:
+        # Both dates provided - filter for range
         query = query.filter(
-            or_(
-                db_models.Wildfire.CONT_DATETIME.is_(None),
-                db_models.Wildfire.CONT_DATETIME >= start_date
-            )
+            db_models.Wildfire.DISCOVERY_DATETIME >= start_date,
+            db_models.Wildfire.DISCOVERY_DATETIME <= end_date
         )
-    if end_date:
-        # The fire must have started on or before the end date.
+    elif start_date:
+        # Only start date - filter from start date onwards
+        query = query.filter(db_models.Wildfire.DISCOVERY_DATETIME >= start_date)
+    elif end_date:
+        # Only end date - filter up to end date
         query = query.filter(db_models.Wildfire.DISCOVERY_DATETIME <= end_date)
+
     return query
 
 # --- Endpoint 1: The Main Fires Map (Paginated) ---
@@ -527,3 +524,45 @@ def get_monthly_fire_frequency(
     ]
 
     return response
+
+# --- Endpoint 13: Get All Fires by Year ---
+@router.get("/fires/year/{year}", response_model=List[schemas.FirePoint])
+def get_fires_by_year(
+    year: int,
+    db: Session = Depends(get_db),
+    state: Optional[str] = None,
+    cause: Optional[str] = None
+):
+    """
+    Get all fires for a specific year with optional state and cause filters.
+    Returns all fire records without pagination, excluding fires smaller than 1 acre.
+    """
+    query = db.query(db_models.Wildfire).filter(
+        db_models.Wildfire.FIRE_YEAR == year,
+        db_models.Wildfire.FIRE_SIZE >= 5.0  # Filter out fires smaller than 1 acre
+    )
+
+    if state:
+        query = query.filter(db_models.Wildfire.STATE == state)
+    if cause and cause != 'All':
+        query = query.filter(db_models.Wildfire.STAT_CAUSE_DESCR == cause)
+
+    fires_db = query.order_by(db_models.Wildfire.FIRE_SIZE.desc()).all()
+
+    fires_response = [
+        schemas.FirePoint(
+            fod_id=f.FOD_ID,
+            lat=f.LATITUDE,
+            lon=f.LONGITUDE,
+            cause=f.STAT_CAUSE_DESCR,
+            agency=f.NWCG_REPORTING_AGENCY,
+            fire_size=f.FIRE_SIZE,
+            fire_year=f.FIRE_YEAR,
+            state=f.STATE,
+            fire_name=f.FIRE_NAME,
+            county=f.COUNTY,
+            fire_size_class=f.FIRE_SIZE_CLASS
+        )
+        for f in fires_db if f.LATITUDE is not None and f.LONGITUDE is not None
+    ]
+
