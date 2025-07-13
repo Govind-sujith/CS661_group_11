@@ -1,30 +1,37 @@
-// src/components/FilterPanel.js (The Final Upgraded Version)
+// src/components/FilterPanel.js
 import React, { useState, useEffect, useContext } from 'react';
 import { FilterContext } from '../context/FilterContext';
-import { getUniqueYears, getUniqueStates, getUniqueCauses } from '../api/apiService';
-import { Select, MenuItem, FormControl, InputLabel, Paper, Typography, Box, CircularProgress } from '@mui/material';
+import { getUniqueStates, getUniqueCauses } from '../api/apiService';
+import {
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Paper,
+  Typography,
+  Box,
+  CircularProgress,
+  TextField,
+  Divider
+} from '@mui/material';
 
 function FilterPanel() {
   const { filters, setFilters } = useContext(FilterContext);
 
-  const [years, setYears] = useState([]);
   const [states, setStates] = useState([]);
-  const [causes, setCauses] = useState([]); // <-- NEW
+  const [causes, setCauses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadFilterOptions = async () => {
       setIsLoading(true);
-      const [yearData, stateData, causeData] = await Promise.all([
-        getUniqueYears(),
+      const [stateData, causeData] = await Promise.all([
         getUniqueStates(),
-        getUniqueCauses() // <-- Fetch the new data
+        getUniqueCauses()
       ]);
 
-      setYears(['All', ...yearData.sort((a, b) => b - a)]);
       setStates(['All', ...stateData.sort()]);
-      setCauses(['All', ...causeData.sort()]); // <-- Set the new data
-      
+      setCauses(['All', ...causeData.sort()]);
       setIsLoading(false);
     };
 
@@ -35,6 +42,14 @@ function FilterPanel() {
     setFilters({
       ...filters,
       [event.target.name]: event.target.value,
+    });
+  };
+
+  const handleDateChange = (event) => {
+    const { name, value } = event.target;
+    setFilters({
+      ...filters,
+      [name]: value,
     });
   };
 
@@ -51,20 +66,49 @@ function FilterPanel() {
     <Paper elevation={3} style={{ padding: '1.5rem', borderRadius: '8px' }}>
       <Typography variant="h6" gutterBottom>Filters</Typography>
       <Box className="space-y-6 mt-4">
-        {/* Year FormControl */}
-        <FormControl fullWidth>
-          <InputLabel id="year-select-label">Year</InputLabel>
-          <Select
-            labelId="year-select-label"
-            name="year"
-            value={filters.year}
-            label="Year"
-            onChange={handleChange}
-          >
-            {years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
-          </Select>
-        </FormControl>
-        
+
+        {/* Date Range Filter */}
+        <Box>
+          <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>
+            Date Range
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              name="startDate"
+              label="Start Date"
+              type="date"
+              value={filters.startDate || ''}
+              onChange={handleDateChange}
+              InputLabelProps={{
+                shrink: true,
+              }}
+              inputProps={{
+                max: '2015-12-31'
+              }}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              name="endDate"
+              label="End Date"
+              type="date"
+              value={filters.endDate || ''}
+              onChange={handleDateChange}
+              InputLabelProps={{
+                shrink: true,
+              }}
+              inputProps={{
+                min: filters.startDate || '1992-01-01',
+                max: '2015-12-31'
+              }}
+              fullWidth
+              size="small"
+            />
+          </Box>
+        </Box>
+
+        <Divider />
+
         {/* State FormControl */}
         <FormControl fullWidth>
           <InputLabel id="state-select-label">State</InputLabel>
@@ -78,8 +122,8 @@ function FilterPanel() {
             {states.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
           </Select>
         </FormControl>
-        
-        {/* --- NEW: Cause FormControl --- */}
+
+        {/* Cause FormControl */}
         <FormControl fullWidth>
           <InputLabel id="cause-select-label">Cause</InputLabel>
           <Select

@@ -16,6 +16,23 @@ const cleanFilters = (filters) => {
   return cleaned;
 };
 
+export const getFiresByYear = async (year, state = null, cause = null) => {
+  try {
+    const params = new URLSearchParams();
+    if (state && state !== 'All') params.append('state', state);
+    if (cause && cause !== 'All') params.append('cause', cause);
+
+    const queryString = params.toString();
+    const response = await fetch(`${BASE_URL}/fires/year/${year}${queryString ? `?${queryString}` : ''}`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    console.error(`Failed to fetch fires for year ${year}:`, error);
+    return [];
+  }
+};
+
+
 export const getFires = async (filters = {}, page = 1, limit = 2000) => {
   try {
     const cleaned = cleanFilters(filters);
@@ -144,3 +161,4 @@ export const predictCause = async (inputData) => {
     return [];
   }
 };
+

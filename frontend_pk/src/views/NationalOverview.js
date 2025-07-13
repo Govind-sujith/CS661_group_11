@@ -1,24 +1,27 @@
-// src/views/NationalOverview.js (FINAL, OPTIMIZED VERSION)
-import React, { useState, useEffect, useContext, useRef, useMemo, useCallback } from 'react'; // <-- Import useCallback
+// src/views/NationalOverview.js (CORRECTED VERSION)
+import React, { useState, useEffect, useContext, useRef, useMemo, useCallback } from 'react';
 import DeckGL from '@deck.gl/react';
 import { Map as ReactMap } from 'react-map-gl';
 import { ScatterplotLayer, GeoJsonLayer, TextLayer } from '@deck.gl/layers';
 import useSupercluster from 'use-supercluster';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { scaleSqrt } from 'd3-scale';
+import WebMercatorViewport from 'viewport-mercator-project';
 
-import { getFires, getCountyData } from '../api/apiService';
+import { getFires, getCountyData, getFiresByYear } from '../api/apiService';
 import { FilterContext } from '../context/FilterContext';
 import FilterPanel from '../components/FilterPanel';
 import InfoPanel from '../components/InfoPanel';
 import SummaryStatsPanel from '../components/SummaryStatsPanel';
 import { Button, CircularProgress, Typography, Paper, Box } from '@mui/material';
-import WebMercatorViewport from 'viewport-mercator-project';
+
 
 
 const MAPTILER_KEY = 'YCA6QDwr0dSmGdZEBnzv';
 const ANALYTICS_DATA_LIMIT = 50000;
 const INITIAL_VIEW_STATE = { longitude: -98.5795, latitude: 39.8283, zoom: 3.5, pitch: 30, bearing: 0 };
+
+// Note: STATE_BOUNDS and STATE_ABBREVIATIONS mappings will be added here
 const STATE_BOUNDS = {
   // States
   Alabama:         [[-88.473227, 30.223334], [-84.88907,  35.008028]],
@@ -142,8 +145,49 @@ const STATE_ABBREVIATIONS = {
   'MP': 'Northern_Mariana_Is'
 };
 
-
 const radiusScale = scaleSqrt().domain([0, 5000]).range([5, 50]);
+
+// Fire size color mapping
+const getFireSizeColor = (fireSize) => {
+  if (fireSize >= 5000) return [139, 0, 0, 200];      // Dark red - Very large fires
+  if (fireSize >= 1000) return [255, 0, 0, 180];      // Red - Large fires
+  if (fireSize >= 300) return [255, 140, 0, 160];     // Orange - Medium fires
+  if (fireSize >= 100) return [255, 215, 0, 140];     // Gold - Small-medium fires
+  if (fireSize >= 10) return [255, 255, 0, 120];      // Yellow - Small fires
+  return [173, 216, 230, 100];                        // Light blue - Very small fires
+};
+
+const fireSizeLegend = [
+  { label: '5000+ acres', color: 'rgb(139, 0, 0)' },
+  { label: '1000-4999 acres', color: 'rgb(255, 0, 0)' },
+  { label: '300-999 acres', color: 'rgb(255, 140, 0)' },
+  { label: '100-299 acres', color: 'rgb(255, 215, 0)' },
+  { label: '10-99 acres', color: 'rgb(255, 255, 0)' },
+  { label: '< 10 acres', color: 'rgb(173, 216, 230)' }
+];
+
+function FireSizeLegend() {
+  return (
+    <Box style={{
+      position: 'absolute',
+      top: 20,
+      right: 20,
+      background: 'rgba(255,255,255,0.9)',
+      padding: '10px',
+      borderRadius: '8px',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+      maxWidth: '200px'
+    }}>
+      <Typography variant="subtitle2" gutterBottom>Fire Size Legend</Typography>
+      {fireSizeLegend.map((item, index) => (
+        <Box key={index} display="flex" alignItems="center" gap={1} mb={0.5}>
+          <Box width={20} height={20} style={{ backgroundColor: item.color, borderRadius: '50%' }} />
+          <Typography variant="caption">{item.label}</Typography>
+        </Box>
+      ))}
+    </Box>
+  );
+}
 
 function NationalOverview() {
   // --- STATE MANAGEMENT ---
@@ -161,7 +205,7 @@ function NationalOverview() {
   const [selectedObject, setSelectedObject] = useState(null);
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
   const mapRef = useRef();
-  
+
   // --- DATA FETCHING ---
   useEffect(() => {
     fetch('/geojson-counties-fips.json')
@@ -169,27 +213,78 @@ function NationalOverview() {
       .then(shapes => setCountyShapes(shapes));
   }, []);
 
-  useEffect(() => {
-    if (viewMode !== 'points') return;
-    setIsPointsLoading(true);
+  // Helper function to build API filters
+  const buildApiFilters = useCallback(() => {
     const apiFilters = {};
-    if (filters.year && filters.year !== 'All') apiFilters.year = filters.year;
-    if (filters.state && filters.state !== 'All') apiFilters.state = filters.state;
-    if (filters.cause && filters.cause !== 'All') apiFilters.cause = filters.cause;
 
-    getFires(apiFilters, currentPage).then(data => {
-      if (currentPage === 1) {
-        setPointData(data.fires || []);
-      } else {
-        setPointData(prevData => [...prevData, ...(data.fires || [])]);
-      }
-      setTotalFires(data.total_fires || 0);
-      setIsPointsLoading(false);
-    });
-  }, [filters, currentPage, viewMode]);
+    // Handle year filter
+    if (filters.year && filters.year !== 'All') {
+      apiFilters.year = filters.year;
+    }
 
-  // Replace this section in your useEffect that handles state zooming:
+    // Handle date range filters
+    if (filters.startDate) {
+      apiFilters.start_date = filters.startDate;
+    }
+    if (filters.endDate) {
+      apiFilters.end_date = filters.endDate;
+    }
 
+    // Handle state filter
+    if (filters.state && filters.state !== 'All') {
+      apiFilters.state = filters.state;
+    }
+
+    // Handle cause filter
+    if (filters.cause && filters.cause !== 'All') {
+      apiFilters.cause = filters.cause;
+    }
+
+    return apiFilters;
+  }, [filters]);
+
+  // Points data fetching
+  useEffect(() => {
+  if (viewMode !== 'points') return;
+
+  setIsPointsLoading(true);
+
+  const apiFilters = buildApiFilters();
+
+  const fetchAllByYear = filters.year && filters.year !== 'All';
+
+  if (fetchAllByYear) {
+    getFiresByYear(filters.year, filters.state, filters.cause)
+      .then(data => {
+        setPointData(data || []);
+        setTotalFires(data.length || 0);
+        setIsPointsLoading(false);
+      })
+      .catch(error => {
+        console.error('Error fetching all fires by year:', error);
+        setIsPointsLoading(false);
+      });
+  } else {
+    getFires(apiFilters, currentPage)
+      .then(data => {
+        if (currentPage === 1) {
+          setPointData(data.fires || []);
+        } else {
+          setPointData(prevData => [...prevData, ...(data.fires || [])]);
+        }
+        setTotalFires(data.total_fires || 0);
+        setIsPointsLoading(false);
+      })
+      .catch(error => {
+        console.error('Error fetching paginated fires:', error);
+        setIsPointsLoading(false);
+      });
+  }
+}, [filters, currentPage, viewMode, buildApiFilters]);
+
+
+
+  // State zoom effect
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
 
@@ -202,11 +297,11 @@ function NationalOverview() {
       // Convert abbreviation to full state name
       const fullStateName = STATE_ABBREVIATIONS[filters.state];
       console.log('Full state name:', fullStateName);
-      
+
       if (fullStateName && STATE_BOUNDS[fullStateName]) {
         const bounds = STATE_BOUNDS[fullStateName];
         console.log('Found bounds:', bounds);
-        
+
         const viewport = new WebMercatorViewport({ width, height });
         const { longitude, latitude, zoom } = viewport.fitBounds(bounds, { padding: 40 });
 
@@ -231,32 +326,38 @@ function NationalOverview() {
       }));
     }
   }, [filters.state, mapReady]);
-  
-useEffect(() => {
+
+  // Analytics and county data fetching
+  useEffect(() => {
     setIsAnalyticsLoading(true);
     setSelectedObject(null);
-    const apiFilters = {};
-    if (filters.year && filters.year !== 'All') apiFilters.year = filters.year;
-    if (filters.state && filters.state !== 'All') apiFilters.state = filters.state;
-    if (filters.cause && filters.cause !== 'All') apiFilters.cause = filters.cause;
+
+    const apiFilters = buildApiFilters();
 
     const analyticsPromise = getFires(apiFilters, 1, ANALYTICS_DATA_LIMIT).then(data => {
       setAnalyticsData(data.fires || []);
+    }).catch(error => {
+      console.error('Error fetching analytics data:', error);
+      setAnalyticsData([]);
     });
 
     const countyPromise = getCountyData(apiFilters).then(fireCounts => {
       const fireCountsMap = new Map(fireCounts.map(d => [String(d.group), d.count]));
       setCountyFireCounts(fireCountsMap);
+    }).catch(error => {
+      console.error('Error fetching county data:', error);
+      setCountyFireCounts(new Map());
     });
 
     Promise.all([analyticsPromise, countyPromise]).then(() => {
       setIsAnalyticsLoading(false);
     });
-    
+
+    // Reset pagination when filters change
     setCurrentPage(1);
     setPointData([]);
-  }, [filters]);
-  
+  }, [filters, buildApiFilters]);
+
   // --- CLUSTERING LOGIC ---
   const pointsToCluster = useMemo(() => analyticsData.map(fire => ({
     type: "Feature",
@@ -265,15 +366,15 @@ useEffect(() => {
   })), [analyticsData]);
 
   const bounds = mapRef.current ? mapRef.current.getMap().getBounds().toArray().flat() : null;
-  
-  const { clusters, supercluster } = useSupercluster({ 
-      points: pointsToCluster, 
-      bounds, 
-      zoom: viewState.zoom, 
+
+  const { clusters, supercluster } = useSupercluster({
+      points: pointsToCluster,
+      bounds,
+      zoom: viewState.zoom,
       options: { radius: 75, maxZoom: 20 }
   });
 
-  // --- CLICK HANDLER (STABILIZED WITH useCallback) ---
+  // --- CLICK HANDLER ---
   const handleLayerClick = useCallback((info) => {
     if (!info.object) return;
 
@@ -282,7 +383,7 @@ useEffect(() => {
     } else if (viewMode === 'heatmap') {
       const fips_key = String(info.object.id).padStart(5, '0');
       const count = countyFireCounts?.get(fips_key) || 0;
-      
+
       const panelInfo = {
         id: info.object.id,
         properties: { NAME: info.object.properties.NAME },
@@ -305,8 +406,8 @@ useEffect(() => {
       }
     }
   }, [viewMode, countyFireCounts, supercluster, analyticsData]);
-  
-  // --- COLOR GETTER ---
+
+  // --- COLOR GETTER FOR HEATMAP ---
   const getColor = (count) => {
     if (count > 5000) return [139, 0, 0, 200];
     if (count > 1000) return [255, 0, 0, 180];
@@ -316,48 +417,62 @@ useEffect(() => {
     return [70, 130, 180, 50];
   };
 
-const heatmapLegend = [
-  { label: '5000+ fires', color: 'rgb(139, 0, 0)' },
-  { label: '1001–5000 fires', color: 'rgb(255, 0, 0)' },
-  { label: '501–1000 fires', color: 'rgb(255, 140, 0)' },
-  { label: '101–500 fires', color: 'rgb(255, 215, 0)' },
-  { label: '11–100 fires', color: 'rgb(255, 250, 205)' },
-  { label: '1–10 fires', color: 'rgb(70, 130, 180)' }
-];
+  const heatmapLegend = [
+    { label: '5000+ fires', color: 'rgb(139, 0, 0)' },
+    { label: '1001–5000 fires', color: 'rgb(255, 0, 0)' },
+    { label: '501–1000 fires', color: 'rgb(255, 140, 0)' },
+    { label: '101–500 fires', color: 'rgb(255, 215, 0)' },
+    { label: '11–100 fires', color: 'rgb(255, 250, 205)' },
+    { label: '1–10 fires', color: 'rgb(70, 130, 180)' }
+  ];
 
-function HeatmapLegend() {
-  return (
-    <Box style={{ position: 'absolute', bottom: 20, right: 20, background: 'rgba(255,255,255,0.9)', padding: '10px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', maxWidth: '180px' }}>
-      <Typography variant="subtitle2" gutterBottom>Heatmap Legend</Typography>
-      {heatmapLegend.map((item, index) => (
-        <Box key={index} display="flex" alignItems="center" gap={1} mb={0.5}>
-          <Box width={20} height={20} style={{ backgroundColor: item.color }} />
-          <Typography variant="caption">{item.label}</Typography>
-        </Box>
-      ))}
-    </Box>
-  );
-}
+  function HeatmapLegend() {
+    return (
+      <Box style={{
+        position: 'absolute',
+        bottom: 20,
+        right: 20,
+        background: 'rgba(255,255,255,0.9)',
+        padding: '10px',
+        borderRadius: '8px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+        maxWidth: '180px'
+      }}>
+        <Typography variant="subtitle2" gutterBottom>Heatmap Legend</Typography>
+        {heatmapLegend.map((item, index) => (
+          <Box key={index} display="flex" alignItems="center" gap={1} mb={0.5}>
+            <Box width={20} height={20} style={{ backgroundColor: item.color }} />
+            <Typography variant="caption">{item.label}</Typography>
+          </Box>
+        ))}
+      </Box>
+    );
+  }
 
-  // --- LAYER CREATION (OPTIMIZED WITH useMemo) ---
+  // --- LAYER CREATION ---
   const layers = useMemo(() => {
     const newLayers = [];
 
     if (viewMode === 'points') {
       newLayers.push(new ScatterplotLayer({
-        id: 'scatterplot', data: pointData, getPosition: d => [d.lon, d.lat],
-        getFillColor: [255, 140, 0, 150], getRadius: d => radiusScale(d.fire_size),
-        radiusMinPixels: 2, pickable: true, onClick: handleLayerClick
+        id: 'scatterplot',
+        data: pointData,
+        getPosition: d => [d.lon, d.lat],
+        getFillColor: d => getFireSizeColor(d.fire_size),
+        getRadius: d => radiusScale(d.fire_size),
+        radiusMinPixels: 3,
+        pickable: true,
+        onClick: handleLayerClick
       }));
-    } 
+    }
     else if (viewMode === 'clustered') {
       newLayers.push(
         new ScatterplotLayer({
           id: 'cluster-layer',
           data: clusters,
           getPosition: d => d.geometry.coordinates,
-          getFillColor: d => d.properties.cluster ? [5, 150, 105, 150] : [255, 140, 0, 150],
-          getRadius: d => d.properties.cluster ? Math.sqrt(d.properties.point_count) * 4 : 5000,
+          getFillColor: d => d.properties.cluster ? [5, 150, 105, 150] : getFireSizeColor(d.properties.fire_size),
+          getRadius: d => d.properties.cluster ? Math.sqrt(d.properties.point_count) * 4 : radiusScale(d.properties.fire_size || 0),
           radiusMinPixels: 5,
           pickable: true,
           onClick: handleLayerClick
@@ -371,17 +486,22 @@ function HeatmapLegend() {
           getColor: [255, 255, 255, 255]
         })
       );
-    } 
+    }
     else if (viewMode === 'heatmap' && countyShapes && countyFireCounts) {
       newLayers.push(new GeoJsonLayer({
-        id: 'county-heatmap', data: countyShapes, filled: true, stroked: true,
-        lineWidthMinPixels: 1, getLineColor: [255, 255, 255, 20],
+        id: 'county-heatmap',
+        data: countyShapes,
+        filled: true,
+        stroked: true,
+        lineWidthMinPixels: 1,
+        getLineColor: [255, 255, 255, 20],
         getFillColor: feature => getColor(countyFireCounts.get(String(feature.id).padStart(5, '0')) || 0),
-        pickable: true, onClick: handleLayerClick,
+        pickable: true,
+        onClick: handleLayerClick,
         updateTriggers: { getFillColor: [countyFireCounts] }
       }));
     }
-    
+
     return newLayers;
   }, [pointData, clusters, countyShapes, countyFireCounts, viewMode, handleLayerClick]);
 
@@ -452,13 +572,15 @@ function HeatmapLegend() {
           <ReactMap
             ref={mapRef}
             mapboxAccessToken={MAPTILER_KEY}
-            mapStyle={`https://api.maptiler.com/maps/dataviz-dark/style.json?key=${MAPTILER_KEY}`}
+            mapStyle={`https://api.maptiler.com/maps/dataviz-light/style.json?key=${MAPTILER_KEY}`}
             onLoad={() => setMapReady(true)}
           />
-
         </DeckGL>
 
+        {viewMode === 'points' && <FireSizeLegend />}
+        {viewMode === 'clustered' && <FireSizeLegend />}
         {viewMode === 'heatmap' && <HeatmapLegend />}
+
         {showLoadingOverlay && (
           <div className="absolute inset-0 bg-slate-900/50 flex flex-col items-center justify-center z-10">
             <CircularProgress color="inherit" style={{ color: 'white' }} />
@@ -473,11 +595,3 @@ function HeatmapLegend() {
 }
 
 export default NationalOverview;
-
-
-
-
-
-
-
-

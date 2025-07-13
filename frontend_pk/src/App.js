@@ -5,11 +5,10 @@ import { FilterProvider } from './context/FilterContext';
 import NationalOverview from './views/NationalOverview';
 import TemporalAnalysis from './views/TemporalAnalysis';
 import AgencyAnalysis from './views/AgencyAnalysis';
-// --- NEW: Import the Forecaster view ---
 import CauseForecaster from './views/CauseForecaster';
+import MultivariateAnalysis from './views/MultivariateAnalysis';
+//import MiscAnalysis from './views/MiscAnalysis'; // <-- Import MiscAnalysis
 import { AppBar, Toolbar, Typography, Button } from '@mui/material';
-import MultivariateAnalysis from './views/MultivariateAnalysis'; // <-- Import the new view
-
 
 function App() {
   return (
@@ -25,10 +24,9 @@ function App() {
                 <Button component={Link} to="/" sx={{ color: 'white' }}>Overview</Button>
                 <Button component={Link} to="/temporal" sx={{ color: 'white' }}>Temporal</Button>
                 <Button component={Link} to="/agency" sx={{ color: 'white' }}>Agencies</Button>
-                {/* --- NEW: Add the Forecaster link --- */}
                 <Button component={Link} to="/forecaster" sx={{ color: 'white' }}>Forecaster</Button>
                 <Button component={Link} to="/multivariate" sx={{ color: 'white' }}>Multivariate Analysis</Button>
-
+                <Button component={Link} to="/misc" sx={{ color: 'white' }}>Misc</Button> {/* Added Misc */}
               </nav>
             </Toolbar>
           </AppBar>
@@ -38,10 +36,9 @@ function App() {
               <Route path="/" element={<NationalOverview />} />
               <Route path="/temporal" element={<TemporalAnalysis />} />
               <Route path="/agency" element={<AgencyAnalysis />} />
-              {/* --- NEW: Add the Forecaster route --- */}
               <Route path="/forecaster" element={<CauseForecaster />} />
               <Route path="/multivariate" element={<MultivariateAnalysis />} />
-
+              {/* <Route path="/misc" element={<MiscAnalysis />} /> {/* Added Misc */}
             </Routes>
           </main>
         </div>
@@ -49,4 +46,5 @@ function App() {
     </FilterProvider>
   );
 }
+
 export default App;
