@@ -1,7 +1,9 @@
-# backend/app/models/db_models.py (THE FINAL, CLEAN, CORRECT VERSION)
+# backend/app/models/db_models.py
 from sqlalchemy import Column, Integer, String, Float, DateTime
 from app.database import Base
 
+# This class defines what a "Wildfire" looks like in our database.
+# Each attribute here corresponds to a column in the 'wildfires' table.
 class Wildfire(Base):
     __tablename__ = "wildfires"
 

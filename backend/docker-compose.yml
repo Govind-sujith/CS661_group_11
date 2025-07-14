@@ -1,28 +1,43 @@
-# backend/docker-compose.yml (The Definitive, Final Version)
+# This file orchestrates our application's services using Docker Compose.
+# It defines how our database and backend API run and communicate with each other.
+
 services:
+  # This service defines our PostgreSQL database container.
   db:
     image: postgres:13
     container_name: postgres_wildfire
+    
     environment: ["POSTGRES_USER=user", "POSTGRES_PASSWORD=password", "POSTGRES_DB=wildfiredb"]
+    # Maps the container's port 5432 to the host machine's port 5432.
     ports: ["5432:5432"]
+    # Ensures that our database data persists even if the container is removed.
     volumes: ["postgres_data:/var/lib/postgresql/data"]
+    # Connects this service to our custom network.
     networks: ["wildfire-net"]
 
+  # This service defines our FastAPI backend application container.
   app:
+    # Builds the Docker image from the Dockerfile in the current directory.
     build: .
     container_name: fastapi_wildfire
+    # The command to run when the container starts. It launches the API with auto-reloading.
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # Maps the container's port 8000 to the host machine's port 8000.
     ports: ["8000:8000"]
     volumes:
-      # This links your local ./app folder for instant API code changes (hot-reloading).
+      # This links your local code to the container, allowing for instant code changes without rebuilding.
       - .:/app
-      # This links the entire parent folder, giving the container access to the SQLite file and the loading script.
+      # This gives the container access to the parent directory, which is needed for the data loading script.
       - ../:/project_root
+    # Makes sure the 'db' service starts before this 'app' service does.
     depends_on: ["db"]
+    # Connects this service to our custom network.
     networks: ["wildfire-net"]
 
+# Defines the named volume for persistent database storage.
 volumes:
   postgres_data:
 
+# Defines the custom network that allows our services to talk to each other.
 networks:
   wildfire-net:

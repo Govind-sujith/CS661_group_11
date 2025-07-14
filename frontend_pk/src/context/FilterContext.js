@@ -1,19 +1,23 @@
-// src/context/FilterContext.js (FIXED)
+// src/context/FilterContext.js
 import React, { createContext, useState } from 'react';
 
-// The initial state of our filters
+// This is the starting point for our filters. When the app first loads,
+// these are the default values that will be used.
 const initialFilters = {
+  queryType: 'year',
   year: 'All',
   state: 'All',
   cause: 'All',
-  startDate: '', // Changed from start_date to startDate
-  endDate: '',   // Changed from end_date to endDate
+  startDate: '',
+  endDate: '',
 };
 
-// Create the context object
+// Here we create the actual context. This object will be used by other
+// components to access the shared filter data.
 export const FilterContext = createContext();
 
-// Create the provider component that will wrap our app
+// This is the provider component. We'll wrap our entire application with this,
+// which makes the filter state available to any component that needs it.
 export const FilterProvider = ({ children }) => {
   const [filters, setFilters] = useState(initialFilters);
 

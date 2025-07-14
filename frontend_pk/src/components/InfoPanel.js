@@ -2,10 +2,12 @@ import React from 'react';
 import { Paper, Typography, Box, IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 
+// This component is the little pop-up panel that shows details about whatever is clicked on the map.
 function InfoPanel({ selectedObject, viewMode, onClose }) {
+  // If nothing is selected, we don't show the panel at all.
   if (!selectedObject) return null;
 
-  // --- Fire point (individual fire) ---
+  // This function decides how to display data for a single, individual fire point.
   const renderPointData = () => {
     const { cause, fire_year, fire_size, state, fire_name, county, agency } = selectedObject;
     return (
@@ -20,12 +22,11 @@ function InfoPanel({ selectedObject, viewMode, onClose }) {
     );
   };
 
-  // --- County heatmap ---
-  // --- REPLACED the renderHeatmapData function with this ---
+  // This function handles displaying info when a county is clicked in the heatmap view.
   const renderHeatmapData = () => {
     const name = selectedObject.properties.NAME;
-    const fips = selectedObject.id; // The FIPS code is the top-level id
-    const count = selectedObject.fire_count; // Now we read it directly
+    const fips = selectedObject.id;
+    const count = selectedObject.fire_count;
 
     return (
       <>
@@ -37,9 +38,9 @@ function InfoPanel({ selectedObject, viewMode, onClose }) {
     );
   };
 
-  // --- Clustered point ---
+  // And this one handles displaying info for a clustered point, which represents multiple fires.
   const renderClusteredData = () => {
-    // This now shows the same rich detail as a regular point
+    // For a cluster, we'll just show the details of one of the fires within it.
     const { cause, fire_year, fire_size, state, fire_name, county, agency } = selectedObject;
     return (
       <>
@@ -59,13 +60,14 @@ function InfoPanel({ selectedObject, viewMode, onClose }) {
         <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
           Information
         </Typography>
+        {/* The little 'x' button to close the panel. */}
         <IconButton onClick={onClose} size="small">
           <CloseIcon />
         </IconButton>
       </Box>
       <hr className="my-2" />
       
-      {/* Decide based on view mode */}
+      {/* Based on the current map view, we'll render the appropriate details. */}
       {viewMode === 'points' && renderPointData()}
       {viewMode === 'heatmap' && renderHeatmapData()}
       {viewMode === 'clustered' && renderClusteredData()}

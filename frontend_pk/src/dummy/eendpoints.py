@@ -1,4 +1,4 @@
-# backend/app/api/endpoints.py
+# backend/app/api/endpoints.py (THE DEFINITIVE, CLEANED, FINAL VERSION)
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -6,15 +6,15 @@ from sqlalchemy import case, func, extract, or_
 from typing import List, Optional
 from datetime import date
 import pandas as pd
-import requests
 
+# All imports now come from the correct, single source of truth
 from app.database import get_db
 from app.models import db_models, schemas
 from app.ml import predictor
 
 router = APIRouter()
 
-# A handy dictionary to map state abbreviations to their FIPS codes.
+# --- State to FIPS Mapping Utility ---
 STATE_TO_FIPS = {
     'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06', 'CO': '08', 'CT': '09',
     'DE': '10', 'FL': '12', 'GA': '13', 'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18',
@@ -25,25 +25,25 @@ STATE_TO_FIPS = {
     'TX': '48', 'UT': '49', 'VT': '50', 'VA': '51', 'WA': '53', 'WV': '54', 'WI': '55', 'WY': '56'
 }
 
-# A reusable function to handle date filtering across different endpoints.
+# --- Helper function for robust date range filtering ---
 def apply_date_range_filter(query, start_date, end_date):
     """Apply date range filter to the query"""
     if start_date and end_date:
-        # If we have both a start and end date, we look for fires within that range.
+        # Both dates provided - filter for range
         query = query.filter(
             db_models.Wildfire.DISCOVERY_DATETIME >= start_date,
             db_models.Wildfire.DISCOVERY_DATETIME <= end_date
         )
     elif start_date:
-        # If there's only a start date, get all fires from that point forward.
+        # Only start date - filter from start date onwards
         query = query.filter(db_models.Wildfire.DISCOVERY_DATETIME >= start_date)
     elif end_date:
-        # And if there's only an end date, get all fires up to that point.
+        # Only end date - filter up to end date
         query = query.filter(db_models.Wildfire.DISCOVERY_DATETIME <= end_date)
 
     return query
 
-# Endpoint for the main map view, showing fires with pagination.
+# --- Endpoint 1: The Main Fires Map (Paginated) ---
 @router.get("/fires", response_model=schemas.PaginatedFiresResponse)
 def get_paginated_fires(
     db: Session = Depends(get_db),
@@ -72,7 +72,7 @@ def get_paginated_fires(
             fod_id=f.FOD_ID, lat=f.LATITUDE, lon=f.LONGITUDE, cause=f.STAT_CAUSE_DESCR,
             agency=f.NWCG_REPORTING_AGENCY, fire_size=f.FIRE_SIZE, fire_year=f.FIRE_YEAR,
             state=f.STATE, fire_name=f.FIRE_NAME, county=f.COUNTY,
-            fire_size_class=f.FIRE_SIZE_CLASS # We also include the fire size class in the response.
+            fire_size_class=f.FIRE_SIZE_CLASS # <-- ADDED THIS FIELD
         )
         for f in fires_page_db if f.LATITUDE is not None and f.LONGITUDE is not None
     ]
@@ -81,9 +81,7 @@ def get_paginated_fires(
         "total_fires": total_fires, "page": page, "limit": limit, "fires": fires_response
     }
 
-# --- Endpoints for analyzing fire data over time ---
-
-# Provides data for the diurnal (24-hour cycle) chart.
+# --- Endpoint 2: Temporal Analysis ---
 @router.get("/temporal/diurnal", response_model=List[schemas.DiurnalDataPoint])
 def get_filtered_diurnal_data(
     db: Session = Depends(get_db),
@@ -108,7 +106,6 @@ def get_filtered_diurnal_data(
         for e in results
     ]
 
-# Gathers data for the weekly cadence chart, showing top causes per day.
 @router.get("/temporal/weekly", response_model=List[schemas.WeeklyCadence])
 def get_weekly_cadence(
     db: Session = Depends(get_db),
@@ -162,7 +159,6 @@ def get_weekly_cadence(
     results = final_query.all()
     return results
 
-# Provides a summarized weekly view, grouping causes into broader categories.
 @router.get("/temporal/weekly-summary", response_model=List[schemas.WeeklyCadence])
 def get_weekly_summary(
     db: Session = Depends(get_db),
@@ -200,7 +196,7 @@ def get_weekly_summary(
 
     return results
 
-# Endpoint to analyze and compare the performance of different agencies.
+# --- Endpoint 3: Agency Performance ---
 @router.get("/performance/agencies", response_model=List[schemas.AgencyPerformance])
 def get_detailed_agency_performance(
     db: Session = Depends(get_db),
@@ -214,7 +210,7 @@ def get_detailed_agency_performance(
     Returns detailed performance metrics for the top N agencies, including a
     breakdown of the top 3 causes for each agency.
     """
-    # First, build the main query with all the user's filters.
+    # Step 1: Build the base query with all filters applied.
     base_query = db.query(db_models.Wildfire)
     base_query = apply_date_range_filter(base_query, start_date, end_date)
     if state:
@@ -222,7 +218,7 @@ def get_detailed_agency_performance(
     if cause and cause != 'All':
         base_query = base_query.filter(db_models.Wildfire.STAT_CAUSE_DESCR == cause)
 
-    # Next, get the summary stats for the top N agencies based on the filtered data.
+    # Step 2: Get the summary statistics for the top N agencies.
     agency_stats_query = base_query.with_entities(
         db_models.Wildfire.NWCG_REPORTING_AGENCY.label("agency_name"),
         func.count(db_models.Wildfire.FOD_ID).label("fire_count"),
@@ -242,7 +238,7 @@ def get_detailed_agency_performance(
 
     top_agencies_stats = agency_stats_query.all()
 
-    # Now, for each of those top agencies, find out their top 3 fire causes.
+    # Step 3: For each top agency, get its top 3 causes.
     response = []
     for agency_stat in top_agencies_stats:
         top_causes_query = base_query.with_entities(
@@ -259,13 +255,15 @@ def get_detailed_agency_performance(
 
         top_causes_raw = top_causes_query.all()
 
-        # We need to build the Pydantic model manually to match the expected output format.
+        # --- THIS IS THE FIX ---
+        # Manually convert the raw database rows into Pydantic models.
+        # This ensures the data structure matches what the final schema expects.
         top_causes_result = [
             schemas.AgencyCauseSummary(cause=row.cause, count=row.count)
             for row in top_causes_raw
         ]
 
-        # Finally, combine the general stats and the top causes into one object.
+        # Combine the stats and the top causes into the final response model
         response.append(
             schemas.AgencyPerformance(
                 agency_name=agency_stat.agency_name,
@@ -280,18 +278,14 @@ def get_detailed_agency_performance(
     return response
 
 
-# The machine learning endpoint for predicting fire causes.
+# --- Endpoint 4: Machine Learning Forecaster ---
 @router.post("/predict/cause", response_model=List[schemas.PredictionResult])
-def predict_fire_cause_from_api(input_data: schemas.PredictionInput):
-    """
-    Takes user input, preprocesses it using the ML pipeline, and returns
-    a real prediction from the loaded model.
-    """
-    # The input data is a Pydantic model, so we turn it into a dictionary for our prediction function.
-    results = predictor.preprocess_and_predict(input_data.dict())
-    return results
+def predict_real_cause(input_data: schemas.PredictionInput):
+    input_df = pd.DataFrame([input_data.dict()])
+    prediction_results = predictor.predict_fire_cause(input_df)
+    return [schemas.PredictionResult(**p) for p in prediction_results]
 
-# A general-purpose endpoint to get aggregate counts for populating dropdowns.
+# --- Endpoint 5: Universal Aggregation (for dropdowns) ---
 @router.get("/aggregate", response_model=List[schemas.AggregateResult])
 def get_aggregate_data(group_by: str, db: Session = Depends(get_db)):
     allowed_group_by_cols = {
@@ -309,7 +303,7 @@ def get_aggregate_data(group_by: str, db: Session = Depends(get_db)):
     ).filter(column_to_group.isnot(None)).group_by(column_to_group).order_by(column_to_group.asc()).all()
     return [{"group": str(row.group), "count": row.count} for row in query]
 
-# Provides aggregated fire counts by county for the heatmap.
+# --- Endpoint 6: County Heatmap Data ---
 @router.get("/aggregate/county", response_model=List[schemas.AggregateResult])
 def get_filtered_county_aggregates(
     db: Session = Depends(get_db),
@@ -333,12 +327,11 @@ def get_filtered_county_aggregates(
     for state_abbr, county_code, count in raw_results:
         state_fips = STATE_TO_FIPS.get(state_abbr)
         if state_fips and county_code is not None:
-            # We combine the state and county codes to create the full FIPS id.
             full_fips = state_fips + str(int(county_code)).zfill(3)
             response.append({"group": full_fips, "count": count})
     return response
 
-# Provides aggregated fire counts by state for the US map.
+# --- Endpoint 7: State-Level Heatmap Data (Modified) ---
 @router.get("/aggregate/state", response_model=List[schemas.AggregateResult])
 def get_filtered_state_aggregates(
     db: Session = Depends(get_db),
@@ -358,7 +351,7 @@ def get_filtered_state_aggregates(
     results = query.group_by("group").all()
     return results
 
-# Endpoint for the main summary statistics cards.
+# --- Endpoint 8: Summary Statistics Card ---
 @router.get("/statistics/summary", response_model=schemas.SummaryStatsExtended)
 def get_summary_statistics(
     db: Session = Depends(get_db),
@@ -370,14 +363,14 @@ def get_summary_statistics(
 ):
     from datetime import date
 
-    # Clean up any empty or null-like values from the filters.
+    # Clean up empty strings and None values
     start_date = start_date if start_date not in [None, "", "null"] else None
     end_date = end_date if end_date not in [None, "", "null"] else None
     state = state if state not in [None, "", "null", "All"] else None
     cause = cause if cause not in [None, "", "null", "All"] else None
     year = year if year not in [None, "", "null", "All"] else None
 
-    # A date range takes priority, but if it's not there, we'll use the year.
+    # Priority logic - fixed to properly handle empty values
     if start_date is not None and end_date is not None:
         actual_start_date = start_date
         actual_end_date = end_date
@@ -388,14 +381,16 @@ def get_summary_statistics(
         actual_start_date = None
         actual_end_date = None
 
-    # Start with a base query and add state/cause filters if they exist.
+    # Base query with state and cause
     base_query = db.query(db_models.Wildfire)
+
     if state:
         base_query = base_query.filter(db_models.Wildfire.STATE == state)
+
     if cause:
         base_query = base_query.filter(db_models.Wildfire.STAT_CAUSE_DESCR == cause)
 
-    # Calculate stats for the specific date range.
+    # Apply date range if available (for range stats)
     range_query = base_query
     if actual_start_date and actual_end_date:
         range_query = range_query.filter(
@@ -408,7 +403,7 @@ def get_summary_statistics(
         func.sum(db_models.Wildfire.FIRE_SIZE).label("total_acres_burned")
     ).one()
 
-    # Also calculate cumulative stats up to the end of the date range.
+    # Cumulative query up to actual_end_date
     cumulative_query = base_query
     if actual_end_date:
         cumulative_query = cumulative_query.filter(db_models.Wildfire.DISCOVERY_DATETIME <= actual_end_date)
@@ -427,7 +422,8 @@ def get_summary_statistics(
         "cumulative_avg_acres": (cumulative_stats.total_acres_burned / cumulative_stats.incident_count) if cumulative_stats.incident_count else 0
     }
 
-# Gathers data for the correlation scatter plot.
+
+# --- Endpoint 9: Correlation Data ---
 @router.get("/statistics/correlation", response_model=schemas.CorrelationResponse)
 def get_correlation_data(
     db: Session = Depends(get_db),
@@ -442,7 +438,6 @@ def get_correlation_data(
         db_models.Wildfire.FIRE_DURATION_DAYS.label("fire_duration_days"),
         db_models.Wildfire.STAT_CAUSE_DESCR.label("cause")
     ).filter(
-        # We add some filters to remove extreme outliers for a cleaner plot.
         db_models.Wildfire.FIRE_SIZE < 5000,
         db_models.Wildfire.FIRE_DURATION_DAYS < 30,
         db_models.Wildfire.FIRE_SIZE.isnot(None),
@@ -455,14 +450,13 @@ def get_correlation_data(
     if state: query = query.filter(db_models.Wildfire.STATE == state)
     if cause and cause != 'All': query = query.filter(db_models.Wildfire.STAT_CAUSE_DESCR == cause)
 
-    # We take a random sample to keep the plot from getting too crowded.
     results = query.order_by(func.random()).limit(5000).all()
     return {
         "sample_size": len(results),
         "data": results
     }
 
-# Creates a distribution of how long fires last.
+# --- Endpoint 10: Duration Distribution ---
 @router.get("/summary/containment-duration-distribution", response_model=List[schemas.DurationDistribution])
 def get_duration_distribution(
     db: Session = Depends(get_db),
@@ -481,7 +475,6 @@ def get_duration_distribution(
     durations = pd.Series([row[0] for row in query.all()])
     if durations.empty: return []
 
-    # We'll group the fire durations into daily bins up to 30 days.
     bins = list(range(31)) + [float('inf')]
     labels = [f"{i}-{i+1}" for i in range(29)] + ["29-30", "30+"]
     binned_durations = pd.cut(durations, bins=bins, labels=labels, right=False)
@@ -490,7 +483,7 @@ def get_duration_distribution(
     response = [{"duration_bin": str(index), "fire_count": value} for index, value in bin_counts.items()]
     return response
 
-# Breaks down fire counts by size class for each major cause.
+# --- Endpoint 11: Size Class by Cause ---
 @router.get("/summary/size-class-by-cause", response_model=List[schemas.SizeClassByCause])
 def get_size_class_distribution_by_cause(
     db: Session = Depends(get_db),
@@ -503,7 +496,6 @@ def get_size_class_distribution_by_cause(
     if state: base_query = base_query.filter(db_models.Wildfire.STATE == state)
     subquery = base_query.subquery()
 
-    # To keep the chart clean, we only show the top 4 causes and group the rest as 'Other'.
     top_causes_query = db.query(subquery.c.STAT_CAUSE_DESCR).group_by(subquery.c.STAT_CAUSE_DESCR).order_by(func.count().desc()).limit(4)
     top_causes = [row[0] for row in top_causes_query.all()]
 
@@ -521,7 +513,7 @@ def get_size_class_distribution_by_cause(
     results = final_query.all()
     return results
 
-# Calculates the number of fires per month for each year.
+# --- Endpoint 12: Monthly Fire Frequency (Modified) ---
 @router.get("/summary/monthly-frequency", response_model=List[schemas.MonthlyFireFrequency])
 def get_monthly_fire_frequency(
     db: Session = Depends(get_db),
@@ -543,7 +535,7 @@ def get_monthly_fire_frequency(
     if not query_results:
         return []
 
-    # Find the actual year range from the data to build a complete timeline.
+    # Get the min/max year from the filtered query to ensure the range is correct
     year_query = db.query(
         func.min(extract('year', db_models.Wildfire.DISCOVERY_DATETIME)),
         func.max(extract('year', db_models.Wildfire.DISCOVERY_DATETIME))
@@ -560,7 +552,6 @@ def get_monthly_fire_frequency(
     min_year = int(min_max_year[0])
     max_year = int(min_max_year[1])
 
-    # Create a map to hold the data, ensuring all months are present for all years.
     data_map = {year: [0] * 12 for year in range(min_year, max_year + 1)}
 
     for row in query_results:
@@ -580,7 +571,7 @@ def get_monthly_fire_frequency(
 
     return response
 
-# Fetches all fires for a given year, used for the yearly animation.
+# --- Endpoint 13: Get All Fires by Year ---
 @router.get("/fires/year/{year}", response_model=List[schemas.FirePoint])
 def get_fires_by_year(
     year: int,
@@ -590,11 +581,11 @@ def get_fires_by_year(
 ):
     """
     Get all fires for a specific year with optional state and cause filters.
-    Returns all fire records without pagination, excluding smaller fires.
+    Returns all fire records without pagination, excluding fires smaller than 1 acre.
     """
     query = db.query(db_models.Wildfire).filter(
         db_models.Wildfire.FIRE_YEAR == year,
-        db_models.Wildfire.FIRE_SIZE >= 5.0  # We filter out small fires to reduce noise.
+        db_models.Wildfire.FIRE_SIZE >= 5.0  # Filter out fires smaller than 1 acre
     )
 
     if state:
@@ -622,7 +613,6 @@ def get_fires_by_year(
     ]
     return fires_response
 
-# Endpoint for the radial chart showing fire causes.
 @router.get("/summary/causes", response_model=List[schemas.AggregateResult])
 def get_cause_summary(
     db: Session = Depends(get_db),
@@ -639,42 +629,10 @@ def get_cause_summary(
         func.count(db_models.Wildfire.FOD_ID).label("count")
     ).filter(db_models.Wildfire.STAT_CAUSE_DESCR.isnot(None))
 
+    # Apply all filters using the helper function
     query = apply_date_range_filter(query, start_date, end_date)
     if state:
         query = query.filter(db_models.Wildfire.STATE == state)
 
     results = query.group_by("group").order_by(func.count(db_models.Wildfire.FOD_ID).desc()).all()
     return results
-
-# Looks up the state for a given latitude and longitude.
-@router.get("/geospatial/reverse-geocode")
-def reverse_geocode(lat: float, lon: float):
-    """
-    Takes latitude and longitude and returns the state using a public API.
-    """
-    # Using the free Nominatim API from OpenStreetMap.
-    url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}"
-    # Some APIs require a user agent, so we set one to be polite.
-    headers = {"User-Agent": "WildfireWebApp"} 
-    
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status() # This will raise an error for bad responses (e.g., 404, 500).
-        data = response.json()
-        
-        # The state code is usually in the 'state_code' field.
-        state_code = data.get('address', {}).get('state_code', '').upper()
-        if not state_code:
-            # If that's not found, we'll try a fallback field.
-            state_code = data.get('address', {}).get('state', '').upper()
-
-        if not state_code:
-            raise HTTPException(status_code=404, detail="State not found for the given coordinates.")
-            
-        return {"state": state_code}
-        
-    except requests.RequestException as e:
-        raise HTTPException(status_code=500, detail=f"Failed to connect to geocoding service: {e}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing geocoding result: {e}")
-

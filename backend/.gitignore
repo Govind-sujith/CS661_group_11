@@ -1,2 +1,2 @@
-backend/data/master_fires_v2.csv
 backend/FPA_FOD_20170508.sqlite
+backend/ml_models/wildfire_cause_model_focused.joblib

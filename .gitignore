@@ -1,13 +1,13 @@
-# 🌐 Environment variables
+# Environment variables
 .env
 
-# 🐍 Python cache files
+# Python cache files
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# 🧪 Virtual environments
+# Virtual environments
 venv/
 *venv/
 .venv/
@@ -15,15 +15,16 @@ venv/
 ENV/
 env/
 
-# 🪟 Windows metadata
+# Windows metadata
 *.db
 *:Zone.Identifier
 
-# 📦 IDE folders
+# IDE folders
 .vscode/
 .idea/
 
-# 📊 Ignore large CSV or data files
+# Ignore large CSV or data files
 /backend/data/
 /backend/FPA_FOD_20170508.sqlite
+/backend/ml_models/wildfire_cause_model_focused.joblib
 FPA_FOD_20170508.sqlite

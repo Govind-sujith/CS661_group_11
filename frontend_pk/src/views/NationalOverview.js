@@ -489,7 +489,7 @@ function NationalOverview() {
           getPosition: d => d.geometry.coordinates,
           getText: d => d.properties.point_count.toLocaleString(),
           getSize: 20,
-          getColor: [255, 255, 255, 255]
+          getColor: [0, 0, 0, 255] 
         })
       );
     }

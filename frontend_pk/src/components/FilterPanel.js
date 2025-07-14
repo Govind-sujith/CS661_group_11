@@ -17,13 +17,17 @@ import {
   ToggleButtonGroup
 } from '@mui/material';
 
+// This component is our main filter sidebar. It controls all the user-selectable
+// options for querying the wildfire data.
 function FilterPanel() {
+  // We grab the global filter state and the function to update it from our context.
   const { filters, setFilters } = useContext(FilterContext);
 
+  // Setting up local state to hold the options for our dropdown menus.
   const [states, setStates] = useState([]);
   const [causes, setCauses] = useState([]);
+  // The years are static, so we can generate them once and store them.
   const [years] = useState(() => {
-    // Generate years from 1992 to 2015
     const yearRange = [];
     for (let year = 2015; year >= 1992; year--) {
       yearRange.push(year);
@@ -32,22 +36,27 @@ function FilterPanel() {
   });
   const [isLoading, setIsLoading] = useState(true);
 
+  // This effect runs once when the component first loads.
+  // Its job is to fetch all the unique options for the dropdowns from our API.
   useEffect(() => {
     const loadFilterOptions = async () => {
       setIsLoading(true);
+      // We can fetch states and causes at the same time for efficiency.
       const [stateData, causeData] = await Promise.all([
         getUniqueStates(),
         getUniqueCauses()
       ]);
 
+      // Once we have the data, we add 'All' to the top and sort the rest alphabetically.
       setStates(['All', ...stateData.sort()]);
       setCauses(['All', ...causeData.sort()]);
-      setIsLoading(false);
+      setIsLoading(false); // Loading is done!
     };
 
     loadFilterOptions();
-  }, []);
+  }, []); // The empty array [] means this effect will only run one time.
 
+  // A general handler for our dropdown menus (Year, State, Cause).
   const handleChange = (event) => {
     setFilters({
       ...filters,
@@ -55,6 +64,7 @@ function FilterPanel() {
     });
   };
 
+  // A specific handler for the date input fields.
   const handleDateChange = (event) => {
     const { name, value } = event.target;
     setFilters({
@@ -63,17 +73,28 @@ function FilterPanel() {
     });
   };
 
+  // This handles the toggle between searching by 'Year' and 'Date Range'.
   const handleQueryTypeChange = (event, newQueryType) => {
-    if (newQueryType !== null) {
+    if (newQueryType !== null) { // The user must select one.
       setFilters({
         ...filters,
         queryType: newQueryType,
-        // Clear the opposite filter when switching
-        ...(newQueryType === 'year' ? { startDate: '', endDate: '' } : { year: 'All' })
+        // When the user switches, we clear out the values for the other type
+        // to avoid sending conflicting filters to the backend.
+        ...(newQueryType === 'year' ? {
+          startDate: '',
+          endDate: ''
+        } : {
+          year: 'All'
+        })
       });
     }
   };
 
+  // We make sure the query type always has a default value.
+  const currentQueryType = filters.queryType || 'year';
+
+  // While the dropdown options are loading, we show a spinner.
   if (isLoading) {
     return (
       <Paper elevation={3} style={{ padding: '1.5rem', borderRadius: '8px', textAlign: 'center' }}>
@@ -83,18 +104,19 @@ function FilterPanel() {
     );
   }
 
+  // This is the main JSX for rendering the filter panel.
   return (
     <Paper elevation={3} style={{ padding: '1.5rem', borderRadius: '8px' }}>
       <Typography variant="h6" gutterBottom>Filters</Typography>
       <Box className="space-y-6 mt-4">
 
-        {/* Query Type Toggle */}
+        {/* The toggle buttons for choosing the query type. */}
         <Box>
           <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>
             Query Type
           </Typography>
           <ToggleButtonGroup
-            value={filters.queryType || 'year'}
+            value={currentQueryType}
             exclusive
             onChange={handleQueryTypeChange}
             aria-label="query type"
@@ -112,9 +134,8 @@ function FilterPanel() {
 
         <Divider />
 
-        {/* Conditional Rendering based on Query Type */}
-        {filters.queryType === 'dateRange' || (!filters.queryType && filters.startDate) ? (
-          // Date Range Filter
+        {/* Here we conditionally render either the Date Range pickers or the Year dropdown. */}
+        {currentQueryType === 'dateRange' ? (
           <Box>
             <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>
               Date Range
@@ -154,7 +175,7 @@ function FilterPanel() {
             </Box>
           </Box>
         ) : (
-          // Year Filter
+          // The dropdown for selecting a single year.
           <FormControl fullWidth>
             <InputLabel id="year-select-label">Year</InputLabel>
             <Select
@@ -175,7 +196,7 @@ function FilterPanel() {
 
         <Divider />
 
-        {/* State FormControl */}
+        {/* The dropdown for selecting a state. */}
         <FormControl fullWidth>
           <InputLabel id="state-select-label">State</InputLabel>
           <Select
@@ -189,7 +210,7 @@ function FilterPanel() {
           </Select>
         </FormControl>
 
-        {/* Cause FormControl */}
+        {/* The dropdown for selecting a fire cause. */}
         <FormControl fullWidth>
           <InputLabel id="cause-select-label">Cause</InputLabel>
           <Select
